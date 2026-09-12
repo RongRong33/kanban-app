@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智慧班級管理系統 | Classroom Hub</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 頂部資訊列 -->
+  <header>
+    <div class="header-container">
+      <div class="logo-area">
+        <div class="logo-icon">🏫</div>
+        <div class="class-meta">
+          <h1 id="classNameDisplay">
+            <span id="txtClassName">三年 2 班</span>
+            <span class="class-badge">導師管理專區</span>
+          </h1>
+          <div class="date-display" id="currentDateStr">載入中...</div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline btn-sm" onclick="exportData()" title="匯出班級資料 JSON 備份">💾 匯出備份</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('importFile').click()" title="從 JSON 匯入">📂 匯入備份</button>
+        <input type="file" id="importFile" style="display:none" accept=".json" onchange="importData(event)">
+        <button class="btn btn-outline btn-sm" onclick="confirmResetData()" title="還原至 30 人完整範例資料">🔄 示範資料</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 功能頁籤 -->
+  <nav class="nav-tabs">
+    <div class="tabs-wrapper">
+      <button class="tab-btn active" onclick="switchTab('dashboard')">📊 班級概況</button>
+      <button class="tab-btn" onclick="switchTab('students')">👥 學生名冊</button>
+      <button class="tab-btn" onclick="switchTab('attendance')">📝 點名簽到</button>
+      <button class="tab-btn" onclick="switchTab('seats')">🪑 教室座位表</button>
+      <button class="tab-btn" onclick="switchTab('points')">⭐ 榮譽表現榜</button>
+      <button class="tab-btn" onclick="switchTab('tools')">🎲 課堂工具箱</button>
+    </div>
+  </nav>
+
+  <!-- 主要內容區塊 -->
+  <main>
+
+    <!-- 1. 班級概況 (Dashboard) -->
+    <div id="tab-dashboard" class="tab-pane active">
+      <!-- 統計指標卡 -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#eef2ff; color:#4f46e5;">👨‍🎓</div>
+          <div class="stat-info">
+            <div class="stat-value" id="dashTotalStudents">0</div>
+            <div class="stat-label">班級總人數</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#ecfdf5; color:#10b981;">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="dashPresentRate">100%</div>
+            <div class="stat-label">今日到校出席率</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fffbeb; color:#f59e0b;">📋</div>
+          <div class="stat-info">
+            <div class="stat-value" id="dashLeaveCount">0</div>
+            <div class="stat-label">今日請假 / 缺席人數</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:#fdf2f8; color:#db2777;">🎖️</div>
+          <div class="stat-info">
+            <div class="stat-value" id="dashCadreCount">0</div>
+            <div class="stat-label">現任班級幹部數</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid">
+        <!-- 今日出缺勤即時視覺化 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📊 今日出缺席即時概況</div>
+            <button class="btn btn-outline btn-sm" onclick="switchTab('attendance')">前往點名 →</button>
+          </div>
+          <p style="font-size: 0.9rem; color: var(--text-muted);">
+            即時統計全班出席狀況：出席 <b id="cntPresent">0</b> 人、事假 <b id="cntPersonal">0</b> 人、病假 <b id="cntSick">0</b> 人、遲到 <b id="cntLate">0</b> 人、曠課 <b id="cntAbsent">0</b> 人。
+          </p>
+          <div class="attendance-bar-container">
+            <div class="attendance-bar">
+              <div id="barPresent" class="bar-seg bar-present" style="width: 100%"></div>
+              <div id="barPersonal" class="bar-seg bar-personal" style="width: 0%"></div>
+              <div id="barSick" class="bar-seg bar-sick" style="width: 0%"></div>
+              <div id="barLate" class="bar-seg bar-late" style="width: 0%"></div>
+              <div id="barAbsent" class="bar-seg bar-absent" style="width: 0%"></div>
+            </div>
+          </div>
+          <div class="attendance-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:var(--success)"></div> 出席</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--secondary)"></div> 事假</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--warning)"></div> 病假</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--info)"></div> 遲到</div>
+            <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div> 曠課</div>
+          </div>
+        </div>
+
+        <!-- 班級公告 / 今日待辦 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">📌 班級待辦與提醒</div>
+            <button class="btn btn-outline btn-sm" onclick="addNoticePrompt()">+ 新增</button>
+          </div>
+          <ul class="notice-list" id="noticeList">
+            <!-- 動態渲染公告 -->
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 學生名冊 (Students) -->
+    <div id="tab-students" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👥 學生名冊管理</div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary btn-sm" onclick="openStudentModal()">+ 新增學生</button>
+          </div>
+        </div>
+
+        <!-- 搜尋與篩選列 -->
+        <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+          <input type="text" id="studentSearchInput" class="form-control" placeholder="🔍 搜尋座號、姓名或幹部職務..." style="max-width: 320px;" oninput="renderStudentTable()">
+          <select id="genderFilter" class="form-control" style="max-width: 140px;" onchange="renderStudentTable()">
+            <option value="all">所有性別</option>
+            <option value="男">男生</option>
+            <option value="女">女生</option>
+          </select>
+          <select id="cadreFilter" class="form-control" style="max-width: 160px;" onchange="renderStudentTable()">
+            <option value="all">所有學生</option>
+            <option value="cadre">僅看班級幹部</option>
+          </select>
+        </div>
+
+        <!-- 學生表格 -->
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px;">座號</th>
+                <th style="width: 120px;">姓名</th>
+                <th style="width: 80px;">性別</th>
+                <th style="width: 140px;">幹部身分</th>
+                <th style="width: 110px;">表現積分</th>
+                <th>聯絡電話 / 家長</th>
+                <th>備註叮嚀</th>
+                <th style="width: 160px; text-align: center;">操作</th>
+              </tr>
+            </thead>
+            <tbody id="studentTableBody">
+              <!-- 動態產生 -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 點名簽到 (Attendance) -->
+    <div id="tab-attendance" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📝 今日點名簽到簿</div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <input type="date" id="attDatePicker" class="form-control" style="width: auto; padding: 6px 10px;" onchange="loadAttendanceDate()">
+            <button class="btn btn-success btn-sm" onclick="markAllPresent()">✨ 一鍵全員到齊</button>
+          </div>
+        </div>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">
+          點擊下方學生按鈕即可快速切換出缺席狀態，紀錄自動儲存。
+        </p>
+
+        <div class="att-student-grid" id="attStudentGrid">
+          <!-- 動態產生點名學生卡片 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 教室座位表 (Seating Chart) -->
+    <div id="tab-seats" class="tab-pane">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🪑 教室座位配置圖</div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn btn-outline btn-sm" onclick="autoAssignSeatsByNumber()">🔢 依座號依序排座</button>
+            <button class="btn btn-outline btn-sm" onclick="shuffleSeats()">🔀 隨機洗牌換位</button>
+            <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ 列印座位表</button>
+          </div>
+        </div>
+
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 14px;">
+          💡 <b>換位提示：</b> 點擊第一位學生的座位反白後，再點擊另一個座位，即可直接完成<b>座位對調</b>！
+        </p>
+
+        <!-- 黑板講台標示 -->
+        <div class="classroom-stage">⬛ 黑 板 ／ 講 台 區</div>
+
+        <!-- 6 排 5 列 座位表格 (可容納 30 個座位) -->
+        <div class="seating-grid" id="seatingGrid">
+          <!-- 動態產生座位 -->
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. 榮譽表現榜 (Points) -->
+    <div id="tab-points" class="tab-pane">
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🏆 班級表現排行榜</div>
+            <span style="font-size: 0.85rem; color: var(--text-muted);">依累積點數排序</span>
+          </div>
+          <div class="leaderboard-list" id="leaderboardList">
+            <!-- 動態排行榜 -->
+          </div>
+        </div>
+
+        <!-- 快速加減分與紀錄 -->
+        <div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">⚡ 快速獎懲登記</div>
+            </div>
+            <div class="form-group">
+              <label>選擇學生</label>
+              <select id="pointTargetStudent" class="form-control">
+                <!-- 動態注入學生選單 -->
+              </select>
+            </div>
+            <div class="form-group">
+              <label>常用評分項目</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(2, '課堂發言踴躍')">🙋 發言踴躍 (+2)</button>
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(3, '作業優良整潔')">📖 作業優良 (+3)</button>
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(2, '主動熱心助人')">🤝 熱心助人 (+2)</button>
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(5, '競賽/大考優異')">🥇 表現優異 (+5)</button>
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(-1, '上課吵鬧違規')">⚠️ 違規吵鬧 (-1)</button>
+                <button class="btn btn-outline btn-sm" onclick="applyQuickPoint(-2, '未交作業罰扣')">❌ 未交作業 (-2)</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📜 近期加扣分紀錄</div>
+              <button class="btn btn-outline btn-sm" onclick="clearPointLogs()">清空紀錄</button>
+            </div>
+            <div id="pointLogList" style="max-height: 240px; overflow-y: auto; font-size: 0.85rem; display: flex; flex-direction: column; gap: 8px;">
+              <!-- 動態歷史 -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. 課堂工具箱 (Tools) -->
+    <div id="tab-tools" class="tab-pane">
+      <div class="tools-container">
+
+        <!-- 隨機抽籤機 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🎯 課堂隨機抽籤機</div>
+            <label style="font-size: 0.8rem; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+              <input type="checkbox" id="chkExcludeAbsent" checked> 排除今日請假學生
+            </label>
+          </div>
+          <div class="draw-box" id="drawBox">
+            <div class="draw-result-name" id="drawName">❓</div>
+            <div class="draw-result-meta" id="drawMeta">按下按鈕開始抽籤</div>
+          </div>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" style="flex:1;" id="btnStartDraw" onclick="startLuckyDraw()">🎲 隨機抽一位同學</button>
+            <button class="btn btn-outline" onclick="resetDrawHistory()">重設紀錄</button>
+          </div>
+          <div style="margin-top: 14px; font-size: 0.85rem; color: var(--text-muted);">
+            <b>已抽過同學：</b> <span id="drawnHistoryText">尚無</span>
+          </div>
+        </div>
+
+        <!-- 課堂倒數計時器 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⏱️ 課堂活動計時器</div>
+          </div>
+          <div class="timer-display" id="timerDisplay">05:00</div>
+          <div class="timer-controls">
+            <button class="btn btn-primary" id="btnTimerToggle" onclick="toggleTimer()">▶ 開始計時</button>
+            <button class="btn btn-outline" onclick="resetTimer()">⏹ 重設</button>
+          </div>
+          <div class="quick-timer-chips">
+            <button class="btn btn-outline btn-sm" onclick="setTimerMinutes(1)">1 分鐘</button>
+            <button class="btn btn-outline btn-sm" onclick="setTimerMinutes(3)">3 分鐘</button>
+            <button class="btn btn-outline btn-sm" onclick="setTimerMinutes(5)">5 分鐘</button>
+            <button class="btn btn-outline btn-sm" onclick="setTimerMinutes(10)">10 分鐘</button>
+            <button class="btn btn-outline btn-sm" onclick="setTimerMinutes(15)">15 分鐘</button>
+          </div>
+        </div>
+
+        <!-- 隨機分組小幫手 -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">👥 快速隨機分組產生器</div>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+            <label style="font-size: 0.9rem;">分成幾組：</label>
+            <input type="number" id="groupCountInput" class="form-control" value="6" min="2" max="15" style="width: 80px;">
+            <button class="btn btn-primary btn-sm" onclick="generateGroups()">🎲 開始隨機分組</button>
+          </div>
+          <div id="groupResultContainer" style="max-height: 280px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+            <div style="grid-column: 1/-1; text-align: center; color: var(--text-muted); font-size: 0.9rem; padding: 20px;">
+              設定組數後點選按鈕產生分組結果
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 學生新增/編輯 Modal -->
+  <div class="modal-overlay" id="studentModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="studentModalTitle" style="font-size: 1.1rem; font-weight: 700;">新增學生資料</h3>
+        <button onclick="closeStudentModal()" style="background:none; border:none; font-size: 1.2rem; cursor:pointer;">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="editStudentId">
+        <div class="form-row">
+          <div class="form-group">
+            <label>座號 *</label>
+            <input type="number" id="modalSeatNo" class="form-control" required min="1">
+          </div>
+          <div class="form-group">
+            <label>姓名 *</label>
+            <input type="text" id="modalName" class="form-control" required placeholder="例如：林承恩">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>性別</label>
+            <select id="modalGender" class="form-control">
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>班級幹部</label>
+            <input type="text" id="modalCadre" class="form-control" placeholder="無 或 班長、風紀等">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>聯絡電話 / 家長姓名</label>
+          <input type="text" id="modalPhone" class="form-control" placeholder="例如：0912-345-678 (林媽媽)">
+        </div>
+        <div class="form-group">
+          <label>備註叮嚀 (如：過敏體質、特殊專長)</label>
+          <input type="text" id="modalNotes" class="form-control" placeholder="例如：對花生過敏、數理資優">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeStudentModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveStudentForm()">儲存資料</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

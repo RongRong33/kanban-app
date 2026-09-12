@@ -1,0 +1,11 @@
+# 系統檔案
+.DS_Store
+Icon*
+
+# 個人文件與非專案圖檔
+*.pdf
+*.docx
+*.pptx
+*.jpeg
+*.jpg
+*.png
